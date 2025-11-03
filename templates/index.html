@@ -6,7 +6,18 @@
     <title>Stock Market Prediction App</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <!-- ✅ Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-YLEQWKVHVS"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-YLEQWKVHVS');
+    </script>
 </head>
+
 <body>
     <div class="container">
         <header>
@@ -31,6 +42,13 @@
             <div class="spinner"></div>
             <p>Fetching stock data and calculating predictions...</p>
         </div>
+
+        <!-- ✅ Flask error message display -->
+        {% if error %}
+          <div style="color: red; text-align: center; margin-top: 10px;">
+            {{ error }}
+          </div>
+        {% endif %}
 
         <div id="errorMessage" class="error-message" style="display: none;"></div>
 
