@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request
 import yfinance as yf
+import os
 
 app = Flask(__name__)
 
@@ -22,11 +23,15 @@ def index():
             current_price = round(hist['Close'][-1], 2)
             sma_10 = round(hist['Close'].rolling(window=10).mean().iloc[-1], 2)
             sma_50 = round(hist['Close'].rolling(window=50).mean().iloc[-1], 2)
-            rsi = 37.87  # replace with your RSI function
+            rsi = 37.87  # placeholder RSI value
             prediction = round(current_price * 0.96, 2)
 
             # Recommendation logic
-            recommendation = "BUY" if prediction > current_price else "SELL" if prediction < current_price else "HOLD"
+            recommendation = (
+                "BUY" if prediction > current_price 
+                else "SELL" if prediction < current_price 
+                else "HOLD"
+            )
 
             stock_data = {
                 'symbol': symbol,
@@ -43,5 +48,7 @@ def index():
 
     return render_template('index.html', stock_data=stock_data, error=error)
 
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 10000))  # important for Render
+    app.run(host='0.0.0.0', port=port, debug=True)
