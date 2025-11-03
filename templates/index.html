@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Market Prediction App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📈 Stock Market Prediction</h1>
+            <p class="subtitle">Get AI-powered buy/sell recommendations with technical analysis</p>
+        </header>
+
+        <div class="search-section">
+            <div class="input-group">
+                <input 
+                    type="text" 
+                    id="tickerInput" 
+                    placeholder="Enter stock ticker (e.g., AAPL, TCS.NS, TSLA)"
+                    autocomplete="off"
+                >
+                <button id="predictBtn" onclick="getPrediction()">Get Prediction</button>
+            </div>
+            <p class="hint">Try: AAPL (Apple), MSFT (Microsoft), TCS.NS (TCS India), GOOGL (Google)</p>
+        </div>
+
+        <div id="loadingSpinner" class="loading-spinner" style="display: none;">
+            <div class="spinner"></div>
+            <p>Fetching stock data and calculating predictions...</p>
+        </div>
+
+        <div id="errorMessage" class="error-message" style="display: none;"></div>
+
+        <div id="resultsSection" class="results-section" style="display: none;">
+            <div class="stock-header">
+                <h2 id="stockTicker"></h2>
+            </div>
+
+            <div class="cards-grid">
+                <div class="card">
+                    <div class="card-label">Current Price</div>
+                    <div class="card-value" id="currentPrice"></div>
+                </div>
+                <div class="card">
+                    <div class="card-label">Predicted Next Day</div>
+                    <div class="card-value" id="predictedPrice"></div>
+                </div>
+                <div class="card">
+                    <div class="card-label">SMA (10)</div>
+                    <div class="card-value" id="sma10"></div>
+                </div>
+                <div class="card">
+                    <div class="card-label">SMA (50)</div>
+                    <div class="card-value" id="sma50"></div>
+                </div>
+                <div class="card">
+                    <div class="card-label">RSI (14)</div>
+                    <div class="card-value" id="rsi14"></div>
+                </div>
+                <div class="card recommendation-card" id="recommendationCard">
+                    <div class="card-label">Recommendation</div>
+                    <div class="card-value recommendation" id="recommendation"></div>
+                </div>
+            </div>
+
+            <div class="chart-section">
+                <h3>Last 6 Months Closing Price</h3>
+                <canvas id="priceChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
