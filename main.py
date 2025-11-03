@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, request, jsonify
 import os
 
 app = Flask(__name__)
@@ -6,6 +6,17 @@ app = Flask(__name__)
 @app.route('/')
 def home():
     return render_template('index.html')
+
+# ✅ Prediction API route
+@app.route('/predict', methods=['POST'])
+def predict():
+    data = request.get_json()
+    symbol = data.get('symbol', '')
+
+    # Dummy logic – later you can replace this with real ML prediction
+    prediction = f"The predicted price for {symbol.upper()} is $250"
+
+    return jsonify({'prediction': prediction})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
