@@ -1,40 +1,47 @@
-from flask import Flask, render_template, request, jsonify
-import os
-import random  # just for demo purposes
+from flask import Flask, render_template, request
+import yfinance as yf
 
 app = Flask(__name__)
 
-@app.route('/')
-def home():
-    return render_template('index.html')
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    error = None
+    stock_data = None
 
-# 👇 Add this route (the one your JS is calling)
-@app.route('/api/quote')
-def get_quote():
-    ticker = request.args.get('ticker', '').upper()
-    if not ticker:
-        return jsonify({'error': 'No ticker provided'}), 400
+    if request.method == 'POST':
+        symbol = request.form['symbol'].upper()
+        try:
+            data = yf.Ticker(symbol)
+            hist = data.history(period='5d')
 
-    # Dummy prediction data for testing (you can replace with real logic)
-    current_price = round(random.uniform(100, 500), 2)
-    predicted_price = round(current_price * random.uniform(0.95, 1.1), 2)
-    
-    data = {
-        'ticker': ticker,
-        'currency': '$',
-        'current_price': current_price,
-        'predicted_price': predicted_price,
-        'sma10': round(current_price * 0.98, 2),
-        'sma50': round(current_price * 0.93, 2),
-        'rsi14': round(random.uniform(30, 70), 2),
-        'recommendation': random.choice(['BUY', 'SELL', 'HOLD']),
-        'chart': {
-            'labels': ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-            'values': [round(current_price * random.uniform(0.9, 1.1), 2) for _ in range(5)]
-        }
-    }
-    return jsonify(data)
+            # Check if data exists
+            if hist.empty:
+                raise ValueError("Invalid stock symbol")
+
+            # Calculate values
+            current_price = round(hist['Close'][-1], 2)
+            sma_10 = round(hist['Close'].rolling(window=10).mean().iloc[-1], 2)
+            sma_50 = round(hist['Close'].rolling(window=50).mean().iloc[-1], 2)
+            rsi = 37.87  # replace with your RSI function
+            prediction = round(current_price * 0.96, 2)
+
+            # Recommendation logic
+            recommendation = "BUY" if prediction > current_price else "SELL" if prediction < current_price else "HOLD"
+
+            stock_data = {
+                'symbol': symbol,
+                'current_price': current_price,
+                'predicted_price': prediction,
+                'sma10': sma_10,
+                'sma50': sma_50,
+                'rsi': rsi,
+                'recommendation': recommendation
+            }
+
+        except Exception as e:
+            error = "❌ Invalid stock symbol. Please enter a valid one (e.g., AAPL, MSFT, TCS.NS)."
+
+    return render_template('index.html', stock_data=stock_data, error=error)
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(debug=True)
