@@ -1,117 +1,78 @@
-// script.js
-let priceChart = null;
+const predictBtn = document.getElementById('predictBtn');
+const tickerInput = document.getElementById('tickerInput');
+const loading = document.getElementById('loading');
+const error = document.getElementById('error');
+const results = document.getElementById('results');
+const ctx = document.getElementById('priceChart');
 
-async function getPrediction() {
-  const tickerInput = document.getElementById("tickerInput");
-  const ticker = tickerInput.value.trim().toUpperCase();
-  const loadingSpinner = document.getElementById("loadingSpinner");
-  const resultsSection = document.getElementById("resultsSection");
-  const errorMessage = document.getElementById("errorMessage");
-  const predictBtn = document.getElementById("predictBtn");
+let priceChart;
 
-  // Clear previous state
-  resultsSection.style.display = "none";
-  errorMessage.style.display = "none";
-  loadingSpinner.style.display = "block";
-  predictBtn.disabled = true;
-  predictBtn.textContent = "Loading...";
-
-  if (!ticker) {
-    loadingSpinner.style.display = "none";
-    predictBtn.disabled = false;
-    predictBtn.textContent = "Get Prediction";
-    errorMessage.textContent = "⚠️ Please enter a stock ticker symbol.";
-    errorMessage.style.display = "block";
-    return;
-  }
-
-  try {
-    const response = await fetch(`/api/quote?ticker=${encodeURIComponent(ticker)}`);
-
-    if (!response.ok) {
-      throw new Error("Server error. Please try again later.");
+predictBtn.addEventListener('click', () => {
+    const ticker = tickerInput.value.trim().toUpperCase();
+    if (!ticker) {
+        showError("Please enter a valid stock symbol!");
+        return;
     }
 
-    const data = await response.json();
-    loadingSpinner.style.display = "none";
-    predictBtn.disabled = false;
-    predictBtn.textContent = "Get Prediction";
+    showLoading(true);
+    results.style.display = "none";
+    error.style.display = "none";
 
-    if (data.error) {
-      errorMessage.textContent = `❌ ${data.error}`;
-      errorMessage.style.display = "block";
-      return;
-    }
+    // Mock API (You can replace with real API later)
+    setTimeout(() => {
+        showLoading(false);
+        displayResults(ticker);
+    }, 1500);
+});
 
-    // ✅ Update stock info
-    document.getElementById("stockTicker").textContent = data.ticker;
-    document.getElementById("currentPrice").textContent = data.currency + data.current_price;
-    document.getElementById("predictedPrice").textContent = data.currency + data.predicted_price;
-    document.getElementById("sma10").textContent = data.currency + data.sma10;
-    document.getElementById("sma50").textContent = data.currency + data.sma50;
-    document.getElementById("rsi14").textContent = data.rsi14;
-    document.getElementById("recommendation").textContent = data.recommendation;
+function showError(message) {
+    error.textContent = message;
+    error.style.display = "block";
+}
 
-    // ✅ Recommendation background color
-    const recCard = document.getElementById("recommendationCard");
-    recCard.style.background =
-      data.recommendation === "BUY"
-        ? "linear-gradient(135deg, #d4f8e8, #a7f3d0)"
-        : data.recommendation === "SELL"
-        ? "linear-gradient(135deg, #fee2e2, #fecaca)"
-        : "linear-gradient(135deg, #fef3c7, #fde68a)";
+function showLoading(show) {
+    loading.style.display = show ? "block" : "none";
+}
 
-    // ✅ Fade-in animation for results
-    resultsSection.style.opacity = "0";
-    resultsSection.style.display = "block";
-    setTimeout(() => (resultsSection.style.opacity = "1"), 100);
+function displayResults(ticker) {
+    document.getElementById('stockName').textContent = `${ticker} - Demo Company`;
+    document.getElementById('currentPrice').textContent = "$" + (150 + Math.random() * 20).toFixed(2);
+    document.getElementById('predictedPrice').textContent = "$" + (160 + Math.random() * 20).toFixed(2);
+    document.getElementById('confidence').textContent = (80 + Math.random() * 20).toFixed(1) + "%";
 
-    // ✅ Update chart
-    const ctx = document.getElementById("priceChart").getContext("2d");
+    const rec = ["BUY", "SELL", "HOLD"][Math.floor(Math.random() * 3)];
+    const recEl = document.getElementById('recommendation');
+    recEl.textContent = rec;
+    recEl.className = "card-value recommendation " + rec.toLowerCase();
+
+    results.style.display = "block";
+
+    renderChart();
+}
+
+function renderChart() {
+    const labels = Array.from({ length: 10 }, (_, i) => `Day ${i + 1}`);
+    const data = labels.map(() => (150 + Math.random() * 20).toFixed(2));
+
     if (priceChart) priceChart.destroy();
 
     priceChart = new Chart(ctx, {
-      type: "line",
-      data: {
-        labels: data.chart.labels,
-        datasets: [
-          {
-            label: `${data.ticker} Closing Price`,
-            data: data.chart.values,
-            borderColor: "#4e73df",
-            backgroundColor: "rgba(78,115,223,0.1)",
-            borderWidth: 2,
-            fill: true,
-            tension: 0.3,
-            pointRadius: 0,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        scales: {
-          x: { ticks: { maxTicksLimit: 8 } },
-          y: { beginAtZero: false },
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Stock Price ($)',
+                data,
+                borderWidth: 3,
+                tension: 0.4,
+            }]
         },
-        plugins: {
-          legend: { display: true },
-          tooltip: { mode: "index", intersect: false },
-        },
-      },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: false }
+            }
+        }
     });
-  } catch (err) {
-    console.error("Error fetching stock data:", err);
-    loadingSpinner.style.display = "none";
-    predictBtn.disabled = false;
-    predictBtn.textContent = "Get Prediction";
-    errorMessage.textContent = "⚠️ Unable to connect to the server or invalid stock symbol.";
-    errorMessage.style.display = "block";
-  }
 }
-
-// Allow pressing "Enter"
-document.getElementById("tickerInput").addEventListener("keypress", function (e) {
-  if (e.key === "Enter") {
-    getPrediction();
-  }
-});
