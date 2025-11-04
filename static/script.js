@@ -7,22 +7,25 @@ async function getPrediction() {
   const loadingSpinner = document.getElementById("loadingSpinner");
   const resultsSection = document.getElementById("resultsSection");
   const errorMessage = document.getElementById("errorMessage");
+  const predictBtn = document.getElementById("predictBtn");
 
   // Clear previous state
   resultsSection.style.display = "none";
   errorMessage.style.display = "none";
   loadingSpinner.style.display = "block";
+  predictBtn.disabled = true;
+  predictBtn.textContent = "Loading...";
 
   if (!ticker) {
     loadingSpinner.style.display = "none";
+    predictBtn.disabled = false;
+    predictBtn.textContent = "Get Prediction";
     errorMessage.textContent = "⚠️ Please enter a stock ticker symbol.";
     errorMessage.style.display = "block";
     return;
   }
 
   try {
-    // ✅ IMPORTANT: Use full domain if hosting frontend separately
-    // For PythonAnywhere, use relative URL (works fine):
     const response = await fetch(`/api/quote?ticker=${encodeURIComponent(ticker)}`);
 
     if (!response.ok) {
@@ -31,6 +34,8 @@ async function getPrediction() {
 
     const data = await response.json();
     loadingSpinner.style.display = "none";
+    predictBtn.disabled = false;
+    predictBtn.textContent = "Get Prediction";
 
     if (data.error) {
       errorMessage.textContent = `❌ ${data.error}`;
@@ -47,7 +52,7 @@ async function getPrediction() {
     document.getElementById("rsi14").textContent = data.rsi14;
     document.getElementById("recommendation").textContent = data.recommendation;
 
-    // ✅ Change background color for recommendation
+    // ✅ Recommendation background color
     const recCard = document.getElementById("recommendationCard");
     recCard.style.background =
       data.recommendation === "BUY"
@@ -56,7 +61,10 @@ async function getPrediction() {
         ? "linear-gradient(135deg, #fee2e2, #fecaca)"
         : "linear-gradient(135deg, #fef3c7, #fde68a)";
 
+    // ✅ Fade-in animation for results
+    resultsSection.style.opacity = "0";
     resultsSection.style.display = "block";
+    setTimeout(() => (resultsSection.style.opacity = "1"), 100);
 
     // ✅ Update chart
     const ctx = document.getElementById("priceChart").getContext("2d");
@@ -94,12 +102,14 @@ async function getPrediction() {
   } catch (err) {
     console.error("Error fetching stock data:", err);
     loadingSpinner.style.display = "none";
+    predictBtn.disabled = false;
+    predictBtn.textContent = "Get Prediction";
     errorMessage.textContent = "⚠️ Unable to connect to the server or invalid stock symbol.";
     errorMessage.style.display = "block";
   }
 }
 
-// Allow pressing "Enter" key
+// Allow pressing "Enter"
 document.getElementById("tickerInput").addEventListener("keypress", function (e) {
   if (e.key === "Enter") {
     getPrediction();
