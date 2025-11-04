@@ -8,7 +8,7 @@ async function getPrediction() {
   const resultsSection = document.getElementById("resultsSection");
   const errorMessage = document.getElementById("errorMessage");
 
-  // Clear old results & errors
+  // Clear previous state
   resultsSection.style.display = "none";
   errorMessage.style.display = "none";
   loadingSpinner.style.display = "block";
@@ -21,17 +21,24 @@ async function getPrediction() {
   }
 
   try {
-    const response = await fetch(`/api/quote?ticker=${ticker}`);
+    // ✅ IMPORTANT: Use full domain if hosting frontend separately
+    // For PythonAnywhere, use relative URL (works fine):
+    const response = await fetch(`/api/quote?ticker=${encodeURIComponent(ticker)}`);
+
+    if (!response.ok) {
+      throw new Error("Server error. Please try again later.");
+    }
+
     const data = await response.json();
     loadingSpinner.style.display = "none";
 
-    if (!response.ok || data.error) {
-      errorMessage.textContent = `❌ ${data.error || "Something went wrong."}`;
+    if (data.error) {
+      errorMessage.textContent = `❌ ${data.error}`;
       errorMessage.style.display = "block";
       return;
     }
 
-    // Update values in UI
+    // ✅ Update stock info
     document.getElementById("stockTicker").textContent = data.ticker;
     document.getElementById("currentPrice").textContent = data.currency + data.current_price;
     document.getElementById("predictedPrice").textContent = data.currency + data.predicted_price;
@@ -40,20 +47,20 @@ async function getPrediction() {
     document.getElementById("rsi14").textContent = data.rsi14;
     document.getElementById("recommendation").textContent = data.recommendation;
 
-    // Change recommendation color
+    // ✅ Change background color for recommendation
     const recCard = document.getElementById("recommendationCard");
-    recCard.classList.remove("buy", "sell", "hold");
-    recCard.classList.add(data.recommendation.toLowerCase());
+    recCard.style.background =
+      data.recommendation === "BUY"
+        ? "linear-gradient(135deg, #d4f8e8, #a7f3d0)"
+        : data.recommendation === "SELL"
+        ? "linear-gradient(135deg, #fee2e2, #fecaca)"
+        : "linear-gradient(135deg, #fef3c7, #fde68a)";
 
-    // Show results
     resultsSection.style.display = "block";
 
-    // Chart.js Visualization
+    // ✅ Update chart
     const ctx = document.getElementById("priceChart").getContext("2d");
-
-    if (priceChart) {
-      priceChart.destroy();
-    }
+    if (priceChart) priceChart.destroy();
 
     priceChart = new Chart(ctx, {
       type: "line",
@@ -63,9 +70,10 @@ async function getPrediction() {
           {
             label: `${data.ticker} Closing Price`,
             data: data.chart.values,
-            borderWidth: 2,
             borderColor: "#4e73df",
-            fill: false,
+            backgroundColor: "rgba(78,115,223,0.1)",
+            borderWidth: 2,
+            fill: true,
             tension: 0.3,
             pointRadius: 0,
           },
@@ -74,19 +82,26 @@ async function getPrediction() {
       options: {
         responsive: true,
         scales: {
-          x: {
-            ticks: { maxTicksLimit: 8 },
-          },
-          y: {
-            beginAtZero: false,
-          },
+          x: { ticks: { maxTicksLimit: 8 } },
+          y: { beginAtZero: false },
+        },
+        plugins: {
+          legend: { display: true },
+          tooltip: { mode: "index", intersect: false },
         },
       },
     });
-
   } catch (err) {
+    console.error("Error fetching stock data:", err);
     loadingSpinner.style.display = "none";
-    errorMessage.textContent = `⚠️ Error: ${err.message}`;
+    errorMessage.textContent = "⚠️ Unable to connect to the server or invalid stock symbol.";
     errorMessage.style.display = "block";
   }
 }
+
+// Allow pressing "Enter" key
+document.getElementById("tickerInput").addEventListener("keypress", function (e) {
+  if (e.key === "Enter") {
+    getPrediction();
+  }
+});
