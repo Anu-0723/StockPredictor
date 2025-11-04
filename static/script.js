@@ -1,47 +1,92 @@
-document.getElementById("predictForm").addEventListener("submit", async function (e) {
-    e.preventDefault();
+// script.js
+let priceChart = null;
 
-    const ticker = document.getElementById("symbol").value.trim();
-    const resultDiv = document.getElementById("result");
-    const loadingDiv = document.getElementById("loading");
-    const errorDiv = document.getElementById("error");
+async function getPrediction() {
+  const tickerInput = document.getElementById("tickerInput");
+  const ticker = tickerInput.value.trim().toUpperCase();
+  const loadingSpinner = document.getElementById("loadingSpinner");
+  const resultsSection = document.getElementById("resultsSection");
+  const errorMessage = document.getElementById("errorMessage");
 
-    // Hide old data & show loader
-    resultDiv.style.display = "none";
-    errorDiv.style.display = "none";
-    loadingDiv.style.display = "block";
+  // Clear old results & errors
+  resultsSection.style.display = "none";
+  errorMessage.style.display = "none";
+  loadingSpinner.style.display = "block";
 
-    try {
-        // ✅ Use your Render API endpoint (important!)
-        const response = await fetch(`https://stockpredictor-oa2t.onrender.com/api/quote?ticker=${encodeURIComponent(ticker)}`);
+  if (!ticker) {
+    loadingSpinner.style.display = "none";
+    errorMessage.textContent = "⚠️ Please enter a stock ticker symbol.";
+    errorMessage.style.display = "block";
+    return;
+  }
 
-        if (!response.ok) {
-            throw new Error("Server error");
-        }
+  try {
+    const response = await fetch(`/api/quote?ticker=${ticker}`);
+    const data = await response.json();
+    loadingSpinner.style.display = "none";
 
-        const data = await response.json();
-
-        if (data.error) {
-            throw new Error(data.error);
-        }
-
-        // Hide loader and show result
-        loadingDiv.style.display = "none";
-        resultDiv.style.display = "block";
-
-        // Fill in results dynamically
-        document.getElementById("stockSymbol").textContent = data.symbol;
-        document.getElementById("currentPrice").textContent = `$${data.current_price}`;
-        document.getElementById("predictedPrice").textContent = `$${data.predicted_price}`;
-        document.getElementById("sma10").textContent = data.sma10;
-        document.getElementById("sma50").textContent = data.sma50;
-        document.getElementById("rsi").textContent = data.rsi;
-        document.getElementById("recommendation").textContent = data.recommendation;
-
-    } catch (err) {
-        console.error("Error:", err);
-        loadingDiv.style.display = "none";
-        errorDiv.style.display = "block";
-        errorDiv.textContent = "⚠️ Network error: Unable to connect to the server or invalid symbol.";
+    if (!response.ok || data.error) {
+      errorMessage.textContent = `❌ ${data.error || "Something went wrong."}`;
+      errorMessage.style.display = "block";
+      return;
     }
-});
+
+    // Update values in UI
+    document.getElementById("stockTicker").textContent = data.ticker;
+    document.getElementById("currentPrice").textContent = data.currency + data.current_price;
+    document.getElementById("predictedPrice").textContent = data.currency + data.predicted_price;
+    document.getElementById("sma10").textContent = data.currency + data.sma10;
+    document.getElementById("sma50").textContent = data.currency + data.sma50;
+    document.getElementById("rsi14").textContent = data.rsi14;
+    document.getElementById("recommendation").textContent = data.recommendation;
+
+    // Change recommendation color
+    const recCard = document.getElementById("recommendationCard");
+    recCard.classList.remove("buy", "sell", "hold");
+    recCard.classList.add(data.recommendation.toLowerCase());
+
+    // Show results
+    resultsSection.style.display = "block";
+
+    // Chart.js Visualization
+    const ctx = document.getElementById("priceChart").getContext("2d");
+
+    if (priceChart) {
+      priceChart.destroy();
+    }
+
+    priceChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: data.chart.labels,
+        datasets: [
+          {
+            label: `${data.ticker} Closing Price`,
+            data: data.chart.values,
+            borderWidth: 2,
+            borderColor: "#4e73df",
+            fill: false,
+            tension: 0.3,
+            pointRadius: 0,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        scales: {
+          x: {
+            ticks: { maxTicksLimit: 8 },
+          },
+          y: {
+            beginAtZero: false,
+          },
+        },
+      },
+    });
+
+  } catch (err) {
+    loadingSpinner.style.display = "none";
+    errorMessage.textContent = `⚠️ Error: ${err.message}`;
+    errorMessage.style.display = "block";
+  }
+}
