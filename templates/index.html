@@ -3,63 +3,130 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stock Price Predictor</title>
-    <link rel="stylesheet" href="style.css">
+    <title>📊 Stock Market Prediction App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
+
 <body>
     <div class="container">
         <header>
-            <h1>📈 Stock Price Predictor</h1>
-            <p class="subtitle">Enter a stock ticker (like AAPL, TCS, INFY) to see predictions</p>
+            <h1>📈 Stock Market Prediction</h1>
+            <p class="subtitle">AI-powered Buy/Sell recommendations with technical indicators</p>
         </header>
 
-        <section class="search-section">
+        <div class="search-section">
             <div class="input-group">
-                <input type="text" id="tickerInput" placeholder="Enter Stock Symbol (e.g., AAPL)">
-                <button id="predictBtn">Predict</button>
+                <input 
+                    type="text" 
+                    id="tickerInput" 
+                    placeholder="Enter stock ticker (e.g., AAPL, TCS.NS, TSLA)"
+                    autocomplete="off"
+                >
+                <button id="predictBtn" onclick="getPrediction()">Get Prediction</button>
             </div>
-            <p class="hint">Example: AAPL for Apple, TCS for Tata Consultancy Services</p>
-        </section>
-
-        <div id="loading" class="loading-spinner" style="display:none;">
-            <div class="spinner"></div>
-            <p>Fetching prediction data...</p>
+            <p class="hint">Try: AAPL, MSFT, RELIANCE.NS, TCS.NS, TSLA</p>
         </div>
 
-        <div id="error" class="error-message" style="display:none;"></div>
+        <!-- Loader -->
+        <div id="loadingSpinner" class="loading-spinner" style="display: none;">
+            <div class="spinner"></div>
+            <p>Fetching live stock data...</p>
+        </div>
 
-        <section id="results" class="results-section" style="display:none;">
+        <!-- Error -->
+        <div id="errorMessage" class="error-message" style="display: none; color: red; text-align: center;"></div>
+
+        <!-- Results -->
+        <div id="resultsSection" class="results-section" style="display: none;">
             <div class="stock-header">
-                <h2 id="stockName">AAPL - Apple Inc.</h2>
+                <h2 id="stockTicker"></h2>
             </div>
 
             <div class="cards-grid">
-                <div class="card">
-                    <p class="card-label">Current Price</p>
-                    <p class="card-value" id="currentPrice">$178.50</p>
-                </div>
-                <div class="card">
-                    <p class="card-label">Predicted Price</p>
-                    <p class="card-value" id="predictedPrice">$185.30</p>
-                </div>
-                <div class="card">
-                    <p class="card-label">Confidence</p>
-                    <p class="card-value" id="confidence">92%</p>
-                </div>
+                <div class="card"><div class="card-label">Current Price</div><div class="card-value" id="currentPrice"></div></div>
+                <div class="card"><div class="card-label">Predicted Next Day</div><div class="card-value" id="predictedPrice"></div></div>
+                <div class="card"><div class="card-label">SMA (10)</div><div class="card-value" id="sma10"></div></div>
+                <div class="card"><div class="card-label">SMA (50)</div><div class="card-value" id="sma50"></div></div>
+                <div class="card"><div class="card-label">RSI (14)</div><div class="card-value" id="rsi14"></div></div>
                 <div class="card recommendation-card">
-                    <p class="card-label">Recommendation</p>
-                    <p class="card-value recommendation buy" id="recommendation">BUY</p>
+                    <div class="card-label">Recommendation</div>
+                    <div class="card-value recommendation" id="recommendation"></div>
                 </div>
             </div>
 
             <div class="chart-section">
-                <h3>Stock Price Trend</h3>
+                <h3>Last 6 Months Closing Prices</h3>
                 <canvas id="priceChart"></canvas>
             </div>
-        </section>
+        </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="script.js"></script>
+    <script>
+        async function getPrediction() {
+            const ticker = document.getElementById("tickerInput").value.trim();
+            const loading = document.getElementById("loadingSpinner");
+            const result = document.getElementById("resultsSection");
+            const error = document.getElementById("errorMessage");
+
+            if (!ticker) {
+                error.textContent = "⚠️ Please enter a stock symbol!";
+                error.style.display = "block";
+                return;
+            }
+
+            error.style.display = "none";
+            result.style.display = "none";
+            loading.style.display = "block";
+
+            try {
+                const response = await fetch(`/api/quote?ticker=${encodeURIComponent(ticker)}`);
+                const data = await response.json();
+
+                loading.style.display = "none";
+
+                if (!response.ok || data.error) {
+                    error.textContent = data.error || "⚠️ Unable to fetch data.";
+                    error.style.display = "block";
+                    return;
+                }
+
+                document.getElementById("stockTicker").textContent = data.ticker;
+                document.getElementById("currentPrice").textContent = `$${data.current_price}`;
+                document.getElementById("predictedPrice").textContent = `$${data.predicted_price}`;
+                document.getElementById("sma10").textContent = data.sma10;
+                document.getElementById("sma50").textContent = data.sma50;
+                document.getElementById("rsi14").textContent = data.rsi14;
+                document.getElementById("recommendation").textContent = data.recommendation;
+
+                result.style.display = "block";
+
+                // Chart update
+                const ctx = document.getElementById("priceChart").getContext("2d");
+                new Chart(ctx, {
+                    type: "line",
+                    data: {
+                        labels: data.chart.labels,
+                        datasets: [{
+                            label: "Closing Price",
+                            data: data.chart.values,
+                            borderWidth: 2,
+                            borderColor: "rgb(54, 162, 235)",
+                            tension: 0.3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { display: false } }
+                    }
+                });
+            } catch (err) {
+                console.error(err);
+                loading.style.display = "none";
+                error.textContent = "⚠️ Network error. Please try again.";
+                error.style.display = "block";
+            }
+        }
+    </script>
 </body>
 </html>
