@@ -21,8 +21,6 @@ async function getPrediction() {
   }
 
   try {
-    // ✅ IMPORTANT: Use full domain if hosting frontend separately
-    // For PythonAnywhere, use relative URL (works fine):
     const response = await fetch(`/api/quote?ticker=${encodeURIComponent(ticker)}`);
 
     if (!response.ok) {
@@ -47,7 +45,7 @@ async function getPrediction() {
     document.getElementById("rsi14").textContent = data.rsi14;
     document.getElementById("recommendation").textContent = data.recommendation;
 
-    // ✅ Change background color for recommendation
+    // ✅ Change background color based on recommendation
     const recCard = document.getElementById("recommendationCard");
     recCard.style.background =
       data.recommendation === "BUY"
@@ -58,7 +56,7 @@ async function getPrediction() {
 
     resultsSection.style.display = "block";
 
-    // ✅ Update chart
+    // ✅ Chart setup
     const ctx = document.getElementById("priceChart").getContext("2d");
     if (priceChart) priceChart.destroy();
 
@@ -99,7 +97,7 @@ async function getPrediction() {
   }
 }
 
-// Allow pressing "Enter" key
+// Allow pressing Enter key
 document.getElementById("tickerInput").addEventListener("keypress", function (e) {
   if (e.key === "Enter") {
     getPrediction();
