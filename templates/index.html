@@ -49,7 +49,7 @@
                 <div class="card"><div class="card-label">SMA (10)</div><div class="card-value" id="sma10"></div></div>
                 <div class="card"><div class="card-label">SMA (50)</div><div class="card-value" id="sma50"></div></div>
                 <div class="card"><div class="card-label">RSI (14)</div><div class="card-value" id="rsi14"></div></div>
-                <div class="card recommendation-card">
+                <div class="card recommendation-card" id="recommendationCard">
                     <div class="card-label">Recommendation</div>
                     <div class="card-value recommendation" id="recommendation"></div>
                 </div>
@@ -62,71 +62,7 @@
         </div>
     </div>
 
-    <script>
-        async function getPrediction() {
-            const ticker = document.getElementById("tickerInput").value.trim();
-            const loading = document.getElementById("loadingSpinner");
-            const result = document.getElementById("resultsSection");
-            const error = document.getElementById("errorMessage");
-
-            if (!ticker) {
-                error.textContent = "⚠️ Please enter a stock symbol!";
-                error.style.display = "block";
-                return;
-            }
-
-            error.style.display = "none";
-            result.style.display = "none";
-            loading.style.display = "block";
-
-            try {
-                const response = await fetch(`/api/quote?ticker=${encodeURIComponent(ticker)}`);
-                const data = await response.json();
-
-                loading.style.display = "none";
-
-                if (!response.ok || data.error) {
-                    error.textContent = data.error || "⚠️ Unable to fetch data.";
-                    error.style.display = "block";
-                    return;
-                }
-
-                document.getElementById("stockTicker").textContent = data.ticker;
-                document.getElementById("currentPrice").textContent = `$${data.current_price}`;
-                document.getElementById("predictedPrice").textContent = `$${data.predicted_price}`;
-                document.getElementById("sma10").textContent = data.sma10;
-                document.getElementById("sma50").textContent = data.sma50;
-                document.getElementById("rsi14").textContent = data.rsi14;
-                document.getElementById("recommendation").textContent = data.recommendation;
-
-                result.style.display = "block";
-
-                // Chart update
-                const ctx = document.getElementById("priceChart").getContext("2d");
-                new Chart(ctx, {
-                    type: "line",
-                    data: {
-                        labels: data.chart.labels,
-                        datasets: [{
-                            label: "Closing Price",
-                            data: data.chart.values,
-                            borderWidth: 2,
-                            borderColor: "rgb(54, 162, 235)",
-                            tension: 0.3
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        plugins: { legend: { display: false } }
-                    }
-                });
-            } catch (err) {
-                console.error(err);
-                loading.style.display = "none";
-                error.textContent = "⚠️ Network error. Please try again.";
-                error.style.display = "block";
-            }
-        }
-    </script>
+    <!-- Load external JS -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
