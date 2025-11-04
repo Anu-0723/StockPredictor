@@ -12,8 +12,8 @@ document.getElementById("predictForm").addEventListener("submit", async function
     loadingDiv.style.display = "block";
 
     try {
-        // ✅ Use your Render domain below:
-        const response = await fetch(`https://stockpredictor-oa2t.onrender.com/?ticker=${encodeURIComponent(ticker)}`);
+        // ✅ Use your Render API endpoint (important!)
+        const response = await fetch(`https://stockpredictor-oa2t.onrender.com/api/quote?ticker=${encodeURIComponent(ticker)}`);
 
         if (!response.ok) {
             throw new Error("Server error");
@@ -25,11 +25,11 @@ document.getElementById("predictForm").addEventListener("submit", async function
             throw new Error(data.error);
         }
 
-        // Hide loader
+        // Hide loader and show result
         loadingDiv.style.display = "none";
         resultDiv.style.display = "block";
 
-        // Fill in results
+        // Fill in results dynamically
         document.getElementById("stockSymbol").textContent = data.symbol;
         document.getElementById("currentPrice").textContent = `$${data.current_price}`;
         document.getElementById("predictedPrice").textContent = `$${data.predicted_price}`;
