@@ -1,78 +1,92 @@
-const predictBtn = document.getElementById('predictBtn');
-const tickerInput = document.getElementById('tickerInput');
-const loading = document.getElementById('loading');
-const error = document.getElementById('error');
-const results = document.getElementById('results');
-const ctx = document.getElementById('priceChart');
+// script.js
+let priceChart = null;
 
-let priceChart;
+async function getPrediction() {
+  const tickerInput = document.getElementById("tickerInput");
+  const ticker = tickerInput.value.trim().toUpperCase();
+  const loadingSpinner = document.getElementById("loadingSpinner");
+  const resultsSection = document.getElementById("resultsSection");
+  const errorMessage = document.getElementById("errorMessage");
 
-predictBtn.addEventListener('click', () => {
-    const ticker = tickerInput.value.trim().toUpperCase();
-    if (!ticker) {
-        showError("Please enter a valid stock symbol!");
-        return;
+  // Clear old results & errors
+  resultsSection.style.display = "none";
+  errorMessage.style.display = "none";
+  loadingSpinner.style.display = "block";
+
+  if (!ticker) {
+    loadingSpinner.style.display = "none";
+    errorMessage.textContent = "⚠️ Please enter a stock ticker symbol.";
+    errorMessage.style.display = "block";
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/quote?ticker=${ticker}`);
+    const data = await response.json();
+    loadingSpinner.style.display = "none";
+
+    if (!response.ok || data.error) {
+      errorMessage.textContent = `❌ ${data.error || "Something went wrong."}`;
+      errorMessage.style.display = "block";
+      return;
     }
 
-    showLoading(true);
-    results.style.display = "none";
-    error.style.display = "none";
+    // Update values in UI
+    document.getElementById("stockTicker").textContent = data.ticker;
+    document.getElementById("currentPrice").textContent = data.currency + data.current_price;
+    document.getElementById("predictedPrice").textContent = data.currency + data.predicted_price;
+    document.getElementById("sma10").textContent = data.currency + data.sma10;
+    document.getElementById("sma50").textContent = data.currency + data.sma50;
+    document.getElementById("rsi14").textContent = data.rsi14;
+    document.getElementById("recommendation").textContent = data.recommendation;
 
-    // Mock API (You can replace with real API later)
-    setTimeout(() => {
-        showLoading(false);
-        displayResults(ticker);
-    }, 1500);
-});
+    // Change recommendation color
+    const recCard = document.getElementById("recommendationCard");
+    recCard.classList.remove("buy", "sell", "hold");
+    recCard.classList.add(data.recommendation.toLowerCase());
 
-function showError(message) {
-    error.textContent = message;
-    error.style.display = "block";
-}
+    // Show results
+    resultsSection.style.display = "block";
 
-function showLoading(show) {
-    loading.style.display = show ? "block" : "none";
-}
+    // Chart.js Visualization
+    const ctx = document.getElementById("priceChart").getContext("2d");
 
-function displayResults(ticker) {
-    document.getElementById('stockName').textContent = `${ticker} - Demo Company`;
-    document.getElementById('currentPrice').textContent = "$" + (150 + Math.random() * 20).toFixed(2);
-    document.getElementById('predictedPrice').textContent = "$" + (160 + Math.random() * 20).toFixed(2);
-    document.getElementById('confidence').textContent = (80 + Math.random() * 20).toFixed(1) + "%";
-
-    const rec = ["BUY", "SELL", "HOLD"][Math.floor(Math.random() * 3)];
-    const recEl = document.getElementById('recommendation');
-    recEl.textContent = rec;
-    recEl.className = "card-value recommendation " + rec.toLowerCase();
-
-    results.style.display = "block";
-
-    renderChart();
-}
-
-function renderChart() {
-    const labels = Array.from({ length: 10 }, (_, i) => `Day ${i + 1}`);
-    const data = labels.map(() => (150 + Math.random() * 20).toFixed(2));
-
-    if (priceChart) priceChart.destroy();
+    if (priceChart) {
+      priceChart.destroy();
+    }
 
     priceChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels,
-            datasets: [{
-                label: 'Stock Price ($)',
-                data,
-                borderWidth: 3,
-                tension: 0.4,
-            }]
+      type: "line",
+      data: {
+        labels: data.chart.labels,
+        datasets: [
+          {
+            label: `${data.ticker} Closing Price`,
+            data: data.chart.values,
+            borderWidth: 2,
+            borderColor: "#4e73df",
+            fill: false,
+            tension: 0.3,
+            pointRadius: 0,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        scales: {
+          x: {
+            ticks: { maxTicksLimit: 8 },
+          },
+          y: {
+            beginAtZero: false,
+          },
         },
-        options: {
-            responsive: true,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: { beginAtZero: false }
-            }
-        }
+      },
     });
+
+  } catch (err) {
+    loadingSpinner.style.display = "none";
+    errorMessage.textContent = `⚠️ Error: ${err.message}`;
+    errorMessage.style.display = "block";
+  }
 }
