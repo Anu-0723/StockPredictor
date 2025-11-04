@@ -1,120 +1,93 @@
 from flask import Flask, render_template, request, jsonify
 import yfinance as yf
-import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
+import pandas as pd
 from sklearn.linear_model import LinearRegression
 import os
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SESSION_SECRET', 'dev-secret-key-change-in-production')
 
-
-# ---- Helper functions ----
-def calculate_sma(data, window):
-    return data['Close'].rolling(window=window).mean()
-
-def calculate_rsi(data, period=14):
-    delta = data['Close'].diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
-    rs = gain / loss
-    rsi = 100 - (100 / (1 + rs))
-    return rsi
-
-def predict_next_day_price(data):
-    data = data.dropna()
-    data['Days'] = np.arange(len(data))
-
-    X = data[['Days']].values
-    y = data['Close'].values
-
-    model = LinearRegression()
-    model.fit(X, y)
-
-    next_day = np.array([[len(data)]])
-    predicted_price = model.predict(next_day)[0]
-
-    return predicted_price
-
-def get_recommendation(current_price, predicted_price):
-    if predicted_price > current_price * 1.02:
-        return "BUY"
-    elif predicted_price < current_price * 0.98:
-        return "SELL"
-    else:
-        return "HOLD"
-
-
-# ---- Routes ----
 @app.route('/')
-def index():
+def home():
     return render_template('index.html')
 
-
 @app.route('/api/quote')
-def get_quote():
-    ticker = request.args.get('ticker', '').upper().strip()
+def get_stock_data():
+    symbol = request.args.get('symbol')
 
-    if not ticker:
-        return jsonify({'error': 'Please provide a ticker symbol'}), 400
+    if not symbol:
+        return jsonify({'error': 'No stock symbol provided'}), 400
 
     try:
-        stock = yf.Ticker(ticker)
-
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=730)
-
-        data = stock.history(start=start_date, end=end_date)
+        # Fetch 2 years of data
+        data = yf.download(symbol, period="2y", interval="1d")
 
         if data.empty:
-            return jsonify({'error': f'No data found for ticker: {ticker}'}), 404
+            return jsonify({'error': 'Invalid stock symbol or no data found'}), 404
 
-        data['SMA10'] = calculate_sma(data, 10)
-        data['SMA50'] = calculate_sma(data, 50)
-        data['RSI14'] = calculate_rsi(data, 14)
+        data['Date'] = data.index
+        data = data.dropna()
 
-        current_price = data['Close'].iloc[-1]
-        sma10 = data['SMA10'].iloc[-1]
-        sma50 = data['SMA50'].iloc[-1]
-        rsi14 = data['RSI14'].iloc[-1]
+        # Technical indicators: SMA (50) & RSI (14)
+        data['SMA50'] = data['Close'].rolling(window=50).mean()
 
-        predicted_price = predict_next_day_price(data)
-        recommendation = get_recommendation(current_price, predicted_price)
+        delta = data['Close'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        RS = gain / loss
+        data['RSI'] = 100 - (100 / (1 + RS))
 
-        chart_data = data.tail(180)
-        chart_labels = [date.to_pydatetime().strftime('%Y-%m-%d') for date in chart_data.index]
-        chart_values = chart_data['Close'].tolist()
+        # Prepare data for prediction
+        data['Prediction'] = data['Close'].shift(-1)
+        X = np.array(data[['Close']])
+        X = X[:-1]
+        y = np.array(data['Prediction'])
+        y = y[:-1]
 
-        info = stock.info
-        currency_symbol = info.get('currency', 'USD')
-        if currency_symbol == 'INR':
-            currency_symbol = '₹'
-        elif currency_symbol == 'USD':
-            currency_symbol = '$'
+        # Train model
+        model = LinearRegression()
+        model.fit(X, y)
+
+        # Predict next day price
+        next_day_price = model.predict([[data['Close'].iloc[-1]]])[0]
+        current_price = round(data['Close'].iloc[-1], 2)
+        next_day_price = round(float(next_day_price), 2)
+
+        # Buy/Sell recommendation
+        if data['RSI'].iloc[-1] < 30:
+            recommendation = "BUY (RSI indicates oversold)"
+        elif data['RSI'].iloc[-1] > 70:
+            recommendation = "SELL (RSI indicates overbought)"
+        elif next_day_price > current_price:
+            recommendation = "BUY (Predicted price is higher)"
         else:
-            currency_symbol = currency_symbol + ' '
+            recommendation = "SELL (Predicted price is lower)"
 
-        response = {
-            'ticker': ticker,
-            'current_price': round(current_price, 2),
-            'predicted_price': round(predicted_price, 2),
-            'sma10': round(sma10, 2),
-            'sma50': round(sma50, 2),
-            'rsi14': round(rsi14, 2),
+        # Determine currency symbol
+        if ".NS" in symbol:
+            currency = "₹"
+        elif ".L" in symbol:
+            currency = "£"
+        elif ".TO" in symbol:
+            currency = "C$"
+        else:
+            currency = "$"
+
+        # Send JSON response
+        return jsonify({
+            'symbol': symbol.upper(),
+            'current_price': current_price,
+            'predicted_price': next_day_price,
             'recommendation': recommendation,
-            'currency': currency_symbol,
-            'chart': {
-                'labels': chart_labels,
-                'values': chart_values
-            }
-        }
-
-        return jsonify(response)
+            'currency': currency,
+            'dates': data['Date'].dt.strftime('%Y-%m-%d').tolist()[-100:],
+            'close_prices': data['Close'].tolist()[-100:]
+        })
 
     except Exception as e:
-        return jsonify({'error': f'Error fetching data: {str(e)}'}), 500
+        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
